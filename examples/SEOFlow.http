@@ -1,0 +1,33 @@
+@base = http://localhost:5080
+@token = REPLACE_WITH_LOGIN_ACCESS_TOKEN
+@tenant = REPLACE_WITH_AUTHORIZED_TENANT_ID
+### Register (no default credentials)
+POST {{base}}/api/v1/auth/register
+Content-Type: application/json
+
+{"email":"owner@example.com","password":"Choose-a-long-unique-password","organization":"Example Agency"}
+### Verify using email or development .secrets/outbox token
+POST {{base}}/api/v1/auth/verify-email
+Content-Type: application/json
+
+{"token":"REPLACE"}
+### Login
+POST {{base}}/api/v1/auth/login
+Content-Type: application/json
+
+{"email":"owner@example.com","password":"Choose-a-long-unique-password"}
+### Memberships
+GET {{base}}/api/v1/tenants
+Authorization: Bearer {{token}}
+### Tenant dashboard
+GET {{base}}/api/v1/tenants/{{tenant}}/dashboard
+Authorization: Bearer {{token}}
+### Add an unverified domain
+POST {{base}}/api/v1/tenants/{{tenant}}/websites
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"name":"Example website","domain":"https://example.com"}
+### Paginated websites
+GET {{base}}/api/v1/tenants/{{tenant}}/websites?page=1&pageSize=20&search=example
+Authorization: Bearer {{token}}

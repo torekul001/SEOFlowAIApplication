@@ -1,0 +1,3 @@
+@model LoginRequest
+@{ ViewData["Title"] = "Sign in"; }
+<section class="auth"><p class="eyebrow">YOUR AGENCY WORKSPACE</p><h1>Welcome back.</h1><p>Manage your organizations and website portfolio.</p><form method="post"><div asp-validation-summary="All" role="alert"></div><label asp-for="Email"></label><input asp-for="Email" autocomplete="username" type="email" required/><label asp-for="Password"></label><input asp-for="Password" autocomplete="current-password" type="password" required/><button>Sign in</button></form><p><a asp-action="Forgot">Forgot password?</a> · <a asp-action="Verify">Verify email</a></p><a asp-action="Register">Create your agency account →</a></section>

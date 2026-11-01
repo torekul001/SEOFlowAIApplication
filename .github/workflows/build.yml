@@ -1,0 +1,28 @@
+name: Build and test
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      sql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_SA_PASSWORD: CI-Disposable-Test-Only-123!
+        ports: ['1433:1433']
+    env:
+      SEOFLOW_TEST_SQL: 'Server=localhost,1433;Database=master;User Id=sa;Password=CI-Disposable-Test-Only-123!;Encrypt=True;TrustServerCertificate=True;Connect Timeout=60;ConnectRetryCount=10;ConnectRetryInterval=5;'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet restore
+      - run: dotnet build --no-restore --configuration Release
+      - run: dotnet format whitespace --verify-no-changes --no-restore
+      - run: dotnet test --no-build --configuration Release --logger trx --results-directory artifacts/test-results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: artifacts/test-results

@@ -1,0 +1,25 @@
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using SEOFlow.Infrastructure.Data;
+using SEOFlow.Infrastructure.Models;
+var expected = Environment.GetEnvironmentVariable("SEOFLOW_BOOTSTRAP_SECRET") ?? "";
+if (expected.Length < 32) throw new InvalidOperationException("Set a random SEOFLOW_BOOTSTRAP_SECRET of at least 32 characters.");
+Console.Write("One-time bootstrap secret: "); var supplied = ReadSecret();
+if (!CryptographicOperations.FixedTimeEquals(SHA256.HashData(Encoding.UTF8.GetBytes(expected)), SHA256.HashData(Encoding.UTF8.GetBytes(supplied)))) throw new UnauthorizedAccessException("Invalid bootstrap secret.");
+var connection = Environment.GetEnvironmentVariable("ConnectionStrings__SeoFlow") ?? throw new InvalidOperationException("ConnectionStrings__SeoFlow is required.");
+var email = Environment.GetEnvironmentVariable("SEOFLOW_ADMIN_EMAIL") ?? throw new InvalidOperationException("SEOFLOW_ADMIN_EMAIL is required.");
+if (!new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(email)) throw new ArgumentException("Invalid email");
+Console.Write("Initial admin password (12–128 characters): "); var password = ReadSecret();
+if (password.Length is < 12 or > 128) throw new ArgumentException("Invalid password length.");
+await using var db = new SeoFlowDbContext(new DbContextOptionsBuilder<SeoFlowDbContext>().UseSqlServer(connection).Options);
+await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+if (await db.TenantMemberships.AnyAsync(x => x.Role == "SuperAdmin")) throw new InvalidOperationException("Bootstrap already completed.");
+var user = new User { Id = Guid.NewGuid(), Email = email.Trim(), NormalizedEmail = email.Trim().ToUpperInvariant(), EmailConfirmed = true, IsActive = true, SecurityStamp = Guid.NewGuid(), CreatedUtc = DateTime.UtcNow };
+user.PasswordHash = new PasswordHasher<User>().HashPassword(user, password);
+var tenant = new Tenant { Id = Guid.NewGuid(), Name = "System Administration", Slug = Guid.NewGuid().ToString("N"), CreatedUtc = DateTime.UtcNow };
+db.Users.Add(user); db.Tenants.Add(tenant); db.TenantMemberships.Add(new() { TenantId = tenant.Id, UserId = user.Id, Role = "SuperAdmin", IsActive = true, CreatedUtc = DateTime.UtcNow });
+db.AuditLogs.Add(new() { TenantId = tenant.Id, UserId = user.Id, Action = "System.Bootstrap", Detail = "Operator initialized admin", CreatedUtc = DateTime.UtcNow });
+await db.SaveChangesAsync(); await tx.CommitAsync(); Console.WriteLine("Admin initialized. Remove SEOFLOW_BOOTSTRAP_SECRET from the environment.");
+static string ReadSecret() { var result = new StringBuilder(); while (true) { var key = Console.ReadKey(true); if (key.Key == ConsoleKey.Enter) { Console.WriteLine(); return result.ToString(); } if (key.Key == ConsoleKey.Backspace) { if (result.Length > 0) result.Length--; } else if (!char.IsControl(key.KeyChar)) result.Append(key.KeyChar); } }
